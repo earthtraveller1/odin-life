@@ -1,5 +1,7 @@
 package main
 
+import "base:runtime"
+
 import "core:c"
 import "core:fmt"
 import "core:math/rand"
@@ -7,7 +9,7 @@ import "core:strings"
 
 import rl "vendor:raylib"
 
-CELL_SIZE :: 16
+CELL_SIZE :: 32
 CELLS_WIDTH :: 1280 / CELL_SIZE
 CELLS_HEIGHT :: 720 / CELL_SIZE
 
@@ -47,7 +49,9 @@ remap_y :: proc(y: int) -> int {
 	}
 }
 
-count_neighbours :: proc(cells: [][CELLS_WIDTH]bool, x: int, y: int) -> (alive: int) {
+count_neighbours :: proc(cells: [][CELLS_WIDTH]bool, x: int, y: int) -> int {
+	alive := 0
+
 	for offset_x in -1 ..= 1 {
 		for offset_y in -1 ..= 1 {
 			if offset_x == 0 && offset_y == 0 {
@@ -60,7 +64,7 @@ count_neighbours :: proc(cells: [][CELLS_WIDTH]bool, x: int, y: int) -> (alive: 
 		}
 	}
 
-	return
+	return alive
 }
 
 main :: proc() {
@@ -86,31 +90,32 @@ main :: proc() {
 			tick_progress += speed
 
 			if tick_progress >= 20 {
-                tick_progress = 0
+				tick_progress = 0
 
 				for y in 0 ..< CELLS_HEIGHT {
 					for x in 0 ..< CELLS_WIDTH {
 						alive_count := count_neighbours(cells, x, y)
 
-						if back_cells[y][x] && alive_count < 2 {
+						if cells[y][x] && alive_count < 2 {
 							back_cells[y][x] = false
+							fmt.printf("(%d, %d) has been killed to due loneliness!\n", x, y)
 						}
 
-						if back_cells[y][x] && alive_count > 3 {
+						if cells[y][x] && alive_count > 3 {
 							back_cells[y][x] = false
+							fmt.printf("(%d, %d) has been killed to due overcrowding!\n", x, y)
 						}
 
-						if !back_cells[y][x] && alive_count == 3 {
+						if !cells[y][x] && alive_count == 3 {
 							back_cells[y][x] = true
+							fmt.printf("(%d, %d) has been revived!\n", x, y)
 						}
 					}
 				}
 
-				{
-					temp := back_cells
-					back_cells = cells
-					cells = temp
-				}
+				temp := back_cells
+				back_cells = cells
+				cells = temp
 			}
 		}
 
@@ -118,8 +123,6 @@ main :: proc() {
 			mouse_position := rl.GetMousePosition()
 			cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
 			cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
-
-			fmt.println("x =", cell_x, "y =", cell_y)
 			cells[cell_y][cell_x] = true
 		}
 
@@ -140,7 +143,7 @@ main :: proc() {
 			paused = (!paused)
 		}
 
-        speed += int(rl.GetMouseWheelMove())
+		speed += int(rl.GetMouseWheelMove())
 
 		rl.ClearBackground(rl.BLACK)
 		rl.BeginDrawing()
@@ -149,20 +152,45 @@ main :: proc() {
 
 		if paused {
 			rl.DrawText("Paused", 10, 10, 48, rl.YELLOW)
-        }
+		}
 
-        {
-            string_builder := strings.builder_make_none()
-            defer strings.builder_destroy(&string_builder)
+		{
+			string_builder := strings.builder_make_none()
+			defer strings.builder_destroy(&string_builder)
 
-            stuff := fmt.sbprintf(&string_builder, "x%d", speed)
-            cstuff := strings.clone_to_cstring(stuff)
-            defer delete(cstuff)
+			stuff := fmt.sbprintf(&string_builder, "x%d", speed)
+			cstuff := strings.clone_to_cstring(stuff)
+			defer delete(cstuff)
 
-            rl.DrawText(cstuff, 10, 72, 48, rl.YELLOW)
-        }
+			rl.DrawText(cstuff, 10, 72, 48, rl.YELLOW)
+		}
+
+		{
+			string_builder := strings.builder_make_none()
+			defer strings.builder_destroy(&string_builder)
+
+			coords := fmt.sbprintf(
+				&string_builder,
+				"X: %d Y: %d",
+				(rl.GetMouseX() + c.int(drag_x)) / CELL_SIZE,
+				(rl.GetMouseY() + c.int(drag_y)) / CELL_SIZE,
+			)
+
+			c_coords := strings.clone_to_cstring(coords)
+			defer delete(c_coords)
+
+			rl.DrawText(c_coords, 10, 128, 32, rl.YELLOW)
+		}
 
 		draw_cells(cells, c.int(drag_x), c.int(drag_y))
+
+		rl.DrawRectangle(
+			(rl.GetMouseX() / CELL_SIZE) * CELL_SIZE,
+			(rl.GetMouseY() / CELL_SIZE) * CELL_SIZE,
+			CELL_SIZE,
+			CELL_SIZE,
+			rl.GREEN,
+		)
 
 		rl.EndDrawing()
 	}
