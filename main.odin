@@ -6,7 +6,7 @@ import "core:math/rand"
 
 import rl "vendor:raylib"
 
-CELL_SIZE :: 8
+CELL_SIZE :: 16
 CELLS_WIDTH :: 1280 / CELL_SIZE
 CELLS_HEIGHT :: 720 / CELL_SIZE
 
@@ -17,8 +17,8 @@ draw_cells :: proc(cells: [][CELLS_WIDTH]bool, x_offset: c.int, y_offset: c.int)
 				rl.DrawRectangle(
 					c.int(x * CELL_SIZE) + x_offset,
 					c.int(y * CELL_SIZE) + y_offset,
-					8,
-					8,
+					CELL_SIZE,
+					CELL_SIZE,
 					rl.WHITE,
 				)
 			}
@@ -102,8 +102,8 @@ main :: proc() {
 
 		if rl.IsMouseButtonDown(.LEFT) {
 			mouse_position := rl.GetMousePosition()
-			cell_x := int((mouse_position.x - c.float(drag_x)) / 8)
-			cell_y := int((mouse_position.y - c.float(drag_y)) / 8)
+			cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
+			cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
 
 			fmt.println("x =", cell_x, "y =", cell_y)
 			cells[cell_y][cell_x] = true
@@ -111,8 +111,8 @@ main :: proc() {
 
 		if rl.IsMouseButtonDown(.RIGHT) {
 			mouse_position := rl.GetMousePosition()
-			cell_x := int((mouse_position.x - c.float(drag_x)) / 8)
-			cell_y := int((mouse_position.y - c.float(drag_y)) / 8)
+			cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
+			cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
 			cells[cell_y][cell_x] = false
 		}
 
