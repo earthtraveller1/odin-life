@@ -36,177 +36,146 @@ draw_cells :: proc(
 	}
 }
 
-remap_x :: proc(x: int) -> int {
-	if x < 0 {
-		return CELLS_HEIGHT + x
-	} else if x >= CELLS_WIDTH {
-		return x - CELLS_WIDTH
-	} else {
-		return x
+draw_formatted_text :: proc(x: int, y: int, font_size: int, format_string: string, args: ..any) {
+	string_builder := strings.builder_make_none()
+	defer strings.builder_destroy(&string_builder)
+
+	stuff := fmt.sbprintf(&string_builder, format_string, ..args)
+	cstuff := strings.clone_to_cstring(stuff)
+	defer delete(cstuff)
+
+	rl.DrawText(cstuff, c.int(x), c.int(y), c.int(font_size), rl.YELLOW)
+}
+
+Game :: struct {
+	paused:        bool,
+	cells:         [][CELLS_WIDTH]bool,
+	back_cells:    [][CELLS_WIDTH]bool,
+
+	// How much has been dragged by the user
+	drag_x:        int,
+	drag_y:        int,
+	speed:         int,
+	tick_progress: int,
+}
+
+game_new :: proc() -> Game {
+	rl.InitWindow(1280, 720, "Odin Life")
+	rl.SetTargetFPS(60)
+
+	return Game {
+		paused = true,
+		cells = make([][CELLS_WIDTH]bool, CELLS_HEIGHT),
+		back_cells = make([][CELLS_WIDTH]bool, CELLS_HEIGHT),
+		speed = 1,
+		tick_progress = 0,
 	}
 }
 
-remap_y :: proc(y: int) -> int {
-	if y < 0 {
-		return CELLS_HEIGHT + y
-	} else if y >= CELLS_HEIGHT {
-		return y - CELLS_HEIGHT
-	} else {
-		return y
-	}
-}
+game_update :: proc(game: ^Game) {
+	using game
 
-count_neighbours :: proc(cells: [][CELLS_WIDTH]bool, x: int, y: int) -> int {
-	alive := 0
+	if !paused {
+		tick_progress += speed
 
-	for offset_x in -1 ..= 1 {
-		for offset_y in -1 ..= 1 {
-			if offset_x == 0 && offset_y == 0 {
-				continue
+		if tick_progress >= TICK_LENGTH {
+			tick_progress = 0
+
+			for y in 0 ..< CELLS_HEIGHT {
+				for x in 0 ..< CELLS_WIDTH {
+					alive_count := count_neighbours(cells, x, y)
+					back_cells[y][x] = should_live(alive_count, cells[y][x])
+				}
 			}
 
-			if cells[remap_y(y + offset_y)][remap_x(x + offset_x)] {
-				alive += 1
-			}
+			temp := back_cells
+			back_cells = cells
+			cells = temp
 		}
 	}
 
-	return alive
+	game_handle_input(game)
 }
 
-should_live :: proc(live_neighbours: int, is_already_alive: bool) -> bool {
-	if is_already_alive && live_neighbours < 2 {
-		return false
+game_handle_input :: proc(game: ^Game) {
+	using game
+
+	if rl.IsMouseButtonDown(.LEFT) {
+		mouse_position := rl.GetMousePosition()
+		cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
+		cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
+		cells[cell_y][cell_x] = true
 	}
 
-	if is_already_alive && (live_neighbours == 2 || live_neighbours == 3) {
-		return true
+	if rl.IsMouseButtonDown(.RIGHT) {
+		mouse_position := rl.GetMousePosition()
+		cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
+		cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
+		cells[cell_y][cell_x] = false
 	}
 
-    if is_already_alive && live_neighbours > 3 {
-        return false
-    }
+	if rl.IsMouseButtonDown(.MIDDLE) {
+		diff := rl.GetMouseDelta()
+		drag_x += int(diff.x)
+		drag_y += int(diff.y)
+	}
 
-    if !is_already_alive && live_neighbours == 3 {
-        return true
-    }
+	if rl.IsKeyPressed(.SPACE) {
+		paused = (!paused)
+	}
 
-    return false
+	speed += int(rl.GetMouseWheelMove())
+	speed = math.clamp(speed, 1, TICK_LENGTH)
+}
+
+game_render :: proc(game: ^Game) {
+    using game
+
+	rl.ClearBackground(rl.BLACK)
+	rl.BeginDrawing()
+
+	rl.DrawRectangle(c.int(drag_x), c.int(drag_y), 1280, 720, rl.GetColor(0x820082))
+
+	if paused {
+		rl.DrawText("Paused", 10, 10, 48, rl.YELLOW)
+	}
+
+	draw_formatted_text(10, 72, 48, "x%d", speed)
+
+	draw_formatted_text(
+		10,
+		128,
+		32,
+		"X: %d Y: %d",
+		(rl.GetMouseX() + c.int(drag_x)) / CELL_SIZE,
+		(rl.GetMouseY() + c.int(drag_y)) / CELL_SIZE,
+	)
+
+	draw_cells(cells, c.int(drag_x), c.int(drag_y))
+
+	rl.DrawRectangle(
+		((rl.GetMouseX() - c.int(drag_x)) / CELL_SIZE) * CELL_SIZE + c.int(drag_x),
+		((rl.GetMouseY() - c.int(drag_y)) / CELL_SIZE) * CELL_SIZE + c.int(drag_y),
+		CELL_SIZE,
+		CELL_SIZE,
+		rl.GREEN,
+	)
+
+	rl.EndDrawing()
+}
+
+game_destroy :: proc(game: ^Game) {
+    delete(game.back_cells)
+    delete(game.cells)
+    rl.CloseWindow()
 }
 
 main :: proc() {
-	rl.InitWindow(1280, 720, "Odin Life")
-	defer rl.CloseWindow()
-
-	rl.SetTargetFPS(60)
-
-	paused := true
-
-	cells := make([][CELLS_WIDTH]bool, CELLS_HEIGHT)
-	back_cells := make([][CELLS_WIDTH]bool, CELLS_HEIGHT)
-
-	zoom: f32
-	drag_x: int
-	drag_y: int
-
-	speed: int = 1
-	tick_progress: int = 0
+    game := game_new()
+    defer game_destroy(&game)
 
 	for !rl.WindowShouldClose() {
-		if !paused {
-			tick_progress += speed
-
-			if tick_progress >= TICK_LENGTH {
-				tick_progress = 0
-
-				for y in 0 ..< CELLS_HEIGHT {
-					for x in 0 ..< CELLS_WIDTH {
-						alive_count := count_neighbours(cells, x, y)
-                        back_cells[y][x] = should_live(alive_count, cells[y][x])
-					}
-				}
-
-				temp := back_cells
-				back_cells = cells
-				cells = temp
-			}
-		}
-
-		if rl.IsMouseButtonDown(.LEFT) {
-			mouse_position := rl.GetMousePosition()
-			cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
-			cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
-			cells[cell_y][cell_x] = true
-		}
-
-		if rl.IsMouseButtonDown(.RIGHT) {
-			mouse_position := rl.GetMousePosition()
-			cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
-			cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
-			cells[cell_y][cell_x] = false
-		}
-
-		if rl.IsMouseButtonDown(.MIDDLE) {
-			diff := rl.GetMouseDelta()
-			drag_x += int(diff.x)
-			drag_y += int(diff.y)
-		}
-
-		if rl.IsKeyPressed(.SPACE) {
-			paused = (!paused)
-		}
-
-		speed += int(rl.GetMouseWheelMove())
-        speed = math.clamp(speed, 1, TICK_LENGTH)
-
-		rl.ClearBackground(rl.BLACK)
-		rl.BeginDrawing()
-
-		rl.DrawRectangle(c.int(drag_x), c.int(drag_y), 1280, 720, rl.GetColor(0x820082))
-
-		if paused {
-			rl.DrawText("Paused", 10, 10, 48, rl.YELLOW)
-		}
-
-		{
-			string_builder := strings.builder_make_none()
-			defer strings.builder_destroy(&string_builder)
-
-			stuff := fmt.sbprintf(&string_builder, "x%d", speed)
-			cstuff := strings.clone_to_cstring(stuff)
-			defer delete(cstuff)
-
-			rl.DrawText(cstuff, 10, 72, 48, rl.YELLOW)
-		}
-
-		{
-			string_builder := strings.builder_make_none()
-			defer strings.builder_destroy(&string_builder)
-
-			coords := fmt.sbprintf(
-				&string_builder,
-				"X: %d Y: %d",
-				(rl.GetMouseX() + c.int(drag_x)) / CELL_SIZE,
-				(rl.GetMouseY() + c.int(drag_y)) / CELL_SIZE,
-			)
-
-			c_coords := strings.clone_to_cstring(coords)
-			defer delete(c_coords)
-
-			rl.DrawText(c_coords, 10, 128, 32, rl.YELLOW)
-		}
-
-		draw_cells(cells, c.int(drag_x), c.int(drag_y))
-		// draw_cells(back_cells, c.int(drag_x), c.int(drag_y), rl.BLUE)
-
-		rl.DrawRectangle(
-			((rl.GetMouseX() - c.int(drag_x)) / CELL_SIZE) * CELL_SIZE + c.int(drag_x),
-			((rl.GetMouseY() - c.int(drag_y)) / CELL_SIZE) * CELL_SIZE + c.int(drag_y),
-			CELL_SIZE,
-			CELL_SIZE,
-			rl.GREEN,
-		)
-
-		rl.EndDrawing()
+        game_update(&game)
+        game_render(&game)
 	}
 }
