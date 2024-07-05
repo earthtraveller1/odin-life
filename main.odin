@@ -3,6 +3,7 @@ package main
 import "core:c"
 import "core:fmt"
 import "core:math/rand"
+import "core:strings"
 
 import rl "vendor:raylib"
 
@@ -77,26 +78,39 @@ main :: proc() {
 	drag_x: int
 	drag_y: int
 
+	speed: int = 1
+	tick_progress: int = 0
+
 	for !rl.WindowShouldClose() {
 		if !paused {
-			for y in 0 ..< CELLS_HEIGHT {
-				for x in 0 ..< CELLS_WIDTH {
-					alive_count := count_neighbours(cells, x, y)
+			tick_progress += speed
 
-					if back_cells[y][x] && (alive_count < 2 || alive_count > 3) {
-						back_cells[y][x] = false
-					}
+			if tick_progress >= 20 {
+                tick_progress = 0
 
-					if !back_cells[y][x] && alive_count == 3 {
-						back_cells[y][x] = true
+				for y in 0 ..< CELLS_HEIGHT {
+					for x in 0 ..< CELLS_WIDTH {
+						alive_count := count_neighbours(cells, x, y)
+
+						if back_cells[y][x] && alive_count < 2 {
+							back_cells[y][x] = false
+						}
+
+						if back_cells[y][x] && alive_count > 3 {
+							back_cells[y][x] = false
+						}
+
+						if !back_cells[y][x] && alive_count == 3 {
+							back_cells[y][x] = true
+						}
 					}
 				}
-			}
 
-			{
-				temp := back_cells
-				back_cells = cells
-				cells = temp
+				{
+					temp := back_cells
+					back_cells = cells
+					cells = temp
+				}
 			}
 		}
 
@@ -126,6 +140,8 @@ main :: proc() {
 			paused = (!paused)
 		}
 
+        speed += int(rl.GetMouseWheelMove())
+
 		rl.ClearBackground(rl.BLACK)
 		rl.BeginDrawing()
 
@@ -133,7 +149,18 @@ main :: proc() {
 
 		if paused {
 			rl.DrawText("Paused", 10, 10, 48, rl.YELLOW)
-		}
+        }
+
+        {
+            string_builder := strings.builder_make_none()
+            defer strings.builder_destroy(&string_builder)
+
+            stuff := fmt.sbprintf(&string_builder, "x%d", speed)
+            cstuff := strings.clone_to_cstring(stuff)
+            defer delete(cstuff)
+
+            rl.DrawText(cstuff, 10, 72, 48, rl.YELLOW)
+        }
 
 		draw_cells(cells, c.int(drag_x), c.int(drag_y))
 
