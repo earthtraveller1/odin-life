@@ -13,7 +13,12 @@ CELL_SIZE :: 32
 CELLS_WIDTH :: 1280 / CELL_SIZE
 CELLS_HEIGHT :: 720 / CELL_SIZE
 
-draw_cells :: proc(cells: [][CELLS_WIDTH]bool, x_offset: c.int, y_offset: c.int) {
+draw_cells :: proc(
+	cells: [][CELLS_WIDTH]bool,
+	x_offset: c.int,
+	y_offset: c.int,
+	color: rl.Color = rl.WHITE,
+) {
 	for row, y in cells {
 		for cell, x in row {
 			if cell {
@@ -22,7 +27,7 @@ draw_cells :: proc(cells: [][CELLS_WIDTH]bool, x_offset: c.int, y_offset: c.int)
 					c.int(y * CELL_SIZE) + y_offset,
 					CELL_SIZE,
 					CELL_SIZE,
-					rl.WHITE,
+					color,
 				)
 			}
 		}
@@ -67,6 +72,26 @@ count_neighbours :: proc(cells: [][CELLS_WIDTH]bool, x: int, y: int) -> int {
 	return alive
 }
 
+should_live :: proc(live_neighbours: int, is_already_alive: bool) -> bool {
+	if is_already_alive && live_neighbours < 2 {
+		return false
+	}
+
+	if is_already_alive && (live_neighbours == 2 || live_neighbours == 3) {
+		return true
+	}
+
+    if is_already_alive && live_neighbours > 3 {
+        return false
+    }
+
+    if !is_already_alive && live_neighbours == 3 {
+        return true
+    }
+
+    return false
+}
+
 main :: proc() {
 	rl.InitWindow(1280, 720, "Odin Life")
 	defer rl.CloseWindow()
@@ -95,21 +120,7 @@ main :: proc() {
 				for y in 0 ..< CELLS_HEIGHT {
 					for x in 0 ..< CELLS_WIDTH {
 						alive_count := count_neighbours(cells, x, y)
-
-						if cells[y][x] && alive_count < 2 {
-							back_cells[y][x] = false
-							fmt.printf("(%d, %d) has been killed to due loneliness!\n", x, y)
-						}
-
-						if cells[y][x] && alive_count > 3 {
-							back_cells[y][x] = false
-							fmt.printf("(%d, %d) has been killed to due overcrowding!\n", x, y)
-						}
-
-						if !cells[y][x] && alive_count == 3 {
-							back_cells[y][x] = true
-							fmt.printf("(%d, %d) has been revived!\n", x, y)
-						}
+                        back_cells[y][x] = should_live(alive_count, cells[y][x])
 					}
 				}
 
@@ -183,6 +194,7 @@ main :: proc() {
 		}
 
 		draw_cells(cells, c.int(drag_x), c.int(drag_y))
+		// draw_cells(back_cells, c.int(drag_x), c.int(drag_y), rl.BLUE)
 
 		rl.DrawRectangle(
 			(rl.GetMouseX() / CELL_SIZE) * CELL_SIZE,
