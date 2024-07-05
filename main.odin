@@ -10,12 +10,7 @@ CELL_SIZE :: 8
 CELLS_WIDTH :: 1280 / CELL_SIZE
 CELLS_HEIGHT :: 720 / CELL_SIZE
 
-cells_1: [CELLS_HEIGHT][CELLS_WIDTH]bool
-cells_2: [CELLS_HEIGHT][CELLS_WIDTH]bool
-cells := cells_1[:]
-back_cells := cells_2[:]
-
-draw_cells :: proc() {
+draw_cells :: proc(cells: [][CELLS_WIDTH]bool) {
 	for row, y in cells {
 		for cell, x in row {
 			if cell {
@@ -45,7 +40,7 @@ remap_y :: proc(y: int) -> int {
 	}
 }
 
-count_neighbours :: proc(x: int, y: int) -> (alive: int) {
+count_neighbours :: proc(cells: [][CELLS_WIDTH]bool, x: int, y: int) -> (alive: int) {
 	for offset_x in -1 ..= 1 {
 		for offset_y in -1 ..= 1 {
 			if offset_x == 0 && offset_y == 0 {
@@ -69,11 +64,14 @@ main :: proc() {
 
 	paused := true
 
+    cells := make([][CELLS_WIDTH]bool, CELLS_HEIGHT)
+    back_cells := make([][CELLS_WIDTH]bool, CELLS_HEIGHT)
+
 	for !rl.WindowShouldClose() {
 		if !paused {
 			for y in 0 ..< CELLS_HEIGHT {
 				for x in 0 ..< CELLS_WIDTH {
-					alive_count := count_neighbours(x, y)
+					alive_count := count_neighbours(cells, x, y)
 
 					if back_cells[y][x] && (alive_count < 2 || alive_count > 3) {
 						back_cells[y][x] = false
@@ -117,7 +115,7 @@ main :: proc() {
 			rl.DrawText("Paused", 10, 10, 48, rl.YELLOW)
 		}
 
-		draw_cells()
+		draw_cells(cells)
 
 		rl.EndDrawing()
 	}
