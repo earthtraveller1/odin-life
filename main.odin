@@ -102,8 +102,8 @@ main :: proc() {
 
 		if rl.IsMouseButtonDown(.LEFT) {
 			mouse_position := rl.GetMousePosition()
-			cell_x := int((mouse_position.x + c.float(drag_x)) / 8)
-			cell_y := int((mouse_position.y + c.float(drag_y)) / 8)
+			cell_x := int((mouse_position.x - c.float(drag_x)) / 8)
+			cell_y := int((mouse_position.y - c.float(drag_y)) / 8)
 
 			fmt.println("x =", cell_x, "y =", cell_y)
 			cells[cell_y][cell_x] = true
@@ -111,8 +111,8 @@ main :: proc() {
 
 		if rl.IsMouseButtonDown(.RIGHT) {
 			mouse_position := rl.GetMousePosition()
-			cell_x := int((mouse_position.x + c.float(drag_x)) / 8)
-			cell_y := int((mouse_position.y + c.float(drag_y)) / 8)
+			cell_x := int((mouse_position.x - c.float(drag_x)) / 8)
+			cell_y := int((mouse_position.y - c.float(drag_y)) / 8)
 			cells[cell_y][cell_x] = false
 		}
 
@@ -128,6 +128,8 @@ main :: proc() {
 
 		rl.ClearBackground(rl.BLACK)
 		rl.BeginDrawing()
+
+		rl.DrawRectangle(c.int(drag_x), c.int(drag_y), 1280, 720, rl.GetColor(0x820082))
 
 		if paused {
 			rl.DrawText("Paused", 10, 10, 48, rl.YELLOW)
