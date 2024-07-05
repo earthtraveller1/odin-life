@@ -100,18 +100,21 @@ game_update :: proc(game: ^Game) {
 game_handle_input :: proc(game: ^Game) {
 	using game
 
-	if rl.IsMouseButtonDown(.LEFT) {
-		mouse_position := rl.GetMousePosition()
-		cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
-		cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
-		cells[cell_y][cell_x] = true
-	}
+	mouse_position := rl.GetMousePosition()
+	cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
+	cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
 
-	if rl.IsMouseButtonDown(.RIGHT) {
-		mouse_position := rl.GetMousePosition()
-		cell_x := int((mouse_position.x - c.float(drag_x)) / CELL_SIZE)
-		cell_y := int((mouse_position.y - c.float(drag_y)) / CELL_SIZE)
-		cells[cell_y][cell_x] = false
+    cell_x_in_bounds := cell_x < CELLS_WIDTH && cell_x >= 0 
+    cell_y_in_bounds := cell_y < CELLS_HEIGHT && cell_y >= 0
+
+	if cell_x_in_bounds && cell_y_in_bounds {
+		if rl.IsMouseButtonDown(.LEFT) {
+			cells[cell_y][cell_x] = true
+		}
+
+		if rl.IsMouseButtonDown(.RIGHT) {
+			cells[cell_y][cell_x] = false
+		}
 	}
 
 	if rl.IsMouseButtonDown(.MIDDLE) {
@@ -129,7 +132,7 @@ game_handle_input :: proc(game: ^Game) {
 }
 
 game_render :: proc(game: ^Game) {
-    using game
+	using game
 
 	rl.ClearBackground(rl.BLACK)
 	rl.BeginDrawing()
@@ -165,17 +168,17 @@ game_render :: proc(game: ^Game) {
 }
 
 game_destroy :: proc(game: ^Game) {
-    delete(game.back_cells)
-    delete(game.cells)
-    rl.CloseWindow()
+	delete(game.back_cells)
+	delete(game.cells)
+	rl.CloseWindow()
 }
 
 main :: proc() {
-    game := game_new()
-    defer game_destroy(&game)
+	game := game_new()
+	defer game_destroy(&game)
 
 	for !rl.WindowShouldClose() {
-        game_update(&game)
-        game_render(&game)
+		game_update(&game)
+		game_render(&game)
 	}
 }
