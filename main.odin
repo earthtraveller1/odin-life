@@ -10,11 +10,17 @@ CELL_SIZE :: 8
 CELLS_WIDTH :: 1280 / CELL_SIZE
 CELLS_HEIGHT :: 720 / CELL_SIZE
 
-draw_cells :: proc(cells: [][CELLS_WIDTH]bool) {
+draw_cells :: proc(cells: [][CELLS_WIDTH]bool, x_offset: c.int, y_offset: c.int) {
 	for row, y in cells {
 		for cell, x in row {
 			if cell {
-				rl.DrawRectangle(c.int(x * CELL_SIZE), c.int(y * CELL_SIZE), 8, 8, rl.WHITE)
+				rl.DrawRectangle(
+					c.int(x * CELL_SIZE) + x_offset,
+					c.int(y * CELL_SIZE) + y_offset,
+					8,
+					8,
+					rl.WHITE,
+				)
 			}
 		}
 	}
@@ -64,8 +70,12 @@ main :: proc() {
 
 	paused := true
 
-    cells := make([][CELLS_WIDTH]bool, CELLS_HEIGHT)
-    back_cells := make([][CELLS_WIDTH]bool, CELLS_HEIGHT)
+	cells := make([][CELLS_WIDTH]bool, CELLS_HEIGHT)
+	back_cells := make([][CELLS_WIDTH]bool, CELLS_HEIGHT)
+
+	zoom: f32
+	drag_x: int
+	drag_y: int
 
 	for !rl.WindowShouldClose() {
 		if !paused {
@@ -92,16 +102,24 @@ main :: proc() {
 
 		if rl.IsMouseButtonDown(.LEFT) {
 			mouse_position := rl.GetMousePosition()
-			cell_x := int(mouse_position.x / 8)
-			cell_y := int(mouse_position.y / 8)
+			cell_x := int((mouse_position.x + c.float(drag_x)) / 8)
+			cell_y := int((mouse_position.y + c.float(drag_y)) / 8)
+
+			fmt.println("x =", cell_x, "y =", cell_y)
 			cells[cell_y][cell_x] = true
 		}
 
 		if rl.IsMouseButtonDown(.RIGHT) {
 			mouse_position := rl.GetMousePosition()
-			cell_x := int(mouse_position.x / 8)
-			cell_y := int(mouse_position.y / 8)
+			cell_x := int((mouse_position.x + c.float(drag_x)) / 8)
+			cell_y := int((mouse_position.y + c.float(drag_y)) / 8)
 			cells[cell_y][cell_x] = false
+		}
+
+		if rl.IsMouseButtonDown(.MIDDLE) {
+			diff := rl.GetMouseDelta()
+			drag_x += int(diff.x)
+			drag_y += int(diff.y)
 		}
 
 		if rl.IsKeyPressed(.SPACE) {
@@ -115,7 +133,7 @@ main :: proc() {
 			rl.DrawText("Paused", 10, 10, 48, rl.YELLOW)
 		}
 
-		draw_cells(cells)
+		draw_cells(cells, c.int(drag_x), c.int(drag_y))
 
 		rl.EndDrawing()
 	}
