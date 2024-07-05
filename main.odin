@@ -4,6 +4,7 @@ import "base:runtime"
 
 import "core:c"
 import "core:fmt"
+import "core:math"
 import "core:math/rand"
 import "core:strings"
 
@@ -12,6 +13,7 @@ import rl "vendor:raylib"
 CELL_SIZE :: 32
 CELLS_WIDTH :: 1280 / CELL_SIZE
 CELLS_HEIGHT :: 720 / CELL_SIZE
+TICK_LENGTH :: 20
 
 draw_cells :: proc(
 	cells: [][CELLS_WIDTH]bool,
@@ -114,7 +116,7 @@ main :: proc() {
 		if !paused {
 			tick_progress += speed
 
-			if tick_progress >= 20 {
+			if tick_progress >= TICK_LENGTH {
 				tick_progress = 0
 
 				for y in 0 ..< CELLS_HEIGHT {
@@ -155,6 +157,7 @@ main :: proc() {
 		}
 
 		speed += int(rl.GetMouseWheelMove())
+        speed = math.clamp(speed, 1, TICK_LENGTH)
 
 		rl.ClearBackground(rl.BLACK)
 		rl.BeginDrawing()
@@ -197,8 +200,8 @@ main :: proc() {
 		// draw_cells(back_cells, c.int(drag_x), c.int(drag_y), rl.BLUE)
 
 		rl.DrawRectangle(
-			(rl.GetMouseX() / CELL_SIZE) * CELL_SIZE,
-			(rl.GetMouseY() / CELL_SIZE) * CELL_SIZE,
+			((rl.GetMouseX() - c.int(drag_x)) / CELL_SIZE) * CELL_SIZE + c.int(drag_x),
+			((rl.GetMouseY() - c.int(drag_y)) / CELL_SIZE) * CELL_SIZE + c.int(drag_y),
 			CELL_SIZE,
 			CELL_SIZE,
 			rl.GREEN,
